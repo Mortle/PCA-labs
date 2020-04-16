@@ -1,5 +1,4 @@
-// 26.    F(x) = (x * 7 + 1)  *  (x ^ 2 - 2 * pi)
-#define _USE_MATH_DEFINES
+// F(x) = (x * 7 + 1) * (x ^ 2 - 2 * pi)
 
 #include <math.h>
 #include <ctime>
@@ -10,50 +9,73 @@ using namespace std;
 
 int main()
 {
-    float x, y = 7, fpuResult, cmathResult;
+    float intervalStart, intervalEnd, intervalStep, y = 7, fpuResult = 0, cmathResult = 0;
     char retryAnswer;
 
-    // Time measurement variables
-    LARGE_INTEGER frequency, fpuStartTime, fpuFinishTime, cmathStartTime, cmathFinishTime;
+    LARGE_INTEGER frequency, fpuStartTime, fpuEndTime, cmathStartTime, cmathEndTime;
     QueryPerformanceFrequency(&frequency);
 
     do
     {
         system("CLS");
-        cout << "F(X) = (X * 7 + 1)  *  (X ^ 2 - 2 * PI)" << endl;
-        cout << "X variable input: ";
-        cin >> x;
+        cout << "Interval start input: ";
+        cin >> intervalStart;
+        cout << "Interval end input: ";
+        cin >> intervalEnd;
+        cout << "Step input: ";
+        cin >> intervalStep;
 
-        QueryPerformanceCounter(&fpuStartTime);
-        _asm {
-            fld y           // ST(0) = 7
-            fld x            // ST(0) = x, ST(1) = 7
-            fmul            // ST(0) = x * 7
-            fld1            // ST(0) = 1, ST(1) = x * 7
-            fadd            // ST(0) = x * 7 + 1
-
-            fld x            // ST(1) = x
-            fld x            // ST(2) = x
-            fmul            // ST(1) = x ^ 2
-        
-            fldpi           // ST(2) = pi
-            fsub            // ST(1) = x ^ 2 - pi
-            fldpi            // ST(2) = pi
-            fsub            // ST(1) = x ^ 2 - 2 * pi
-
-            fmul            // ST(0) = (x * 7 + 1)  *  (x ^ 2 - 2*  pi)
-
-            fstp fpuResult
+        if (intervalStart > intervalEnd) {
+            auto temp = intervalStart;
+            intervalStart = intervalEnd;
+            intervalEnd = temp;
         }
-        _asm fwait
-        QueryPerformanceCounter(&fpuFinishTime);
+
+        float x = intervalStart;
+        QueryPerformanceCounter(&fpuStartTime);
+        do
+        {
+            _asm {
+                fld y
+                fld x
+                fmul
+                fld1
+                fadd
+
+                fld x
+                fld x
+                fmul
+
+                fldpi
+                fsub
+                fldpi
+                fsub
+
+                fmul
+
+                fld fpuResult
+                fadd
+
+                fstp fpuResult
+            }
+            _asm fwait
+
+            x += intervalStep;
+        } while (x <= intervalEnd);
+        QueryPerformanceCounter(&fpuEndTime);
 
         QueryPerformanceCounter(&cmathStartTime);
-        cmathResult = (x * 7 + 1) * (pow(x, 2) - 2 * M_PI);
-        QueryPerformanceCounter(&cmathFinishTime);
+        x = intervalStart;
+        do
+        {
+            cmathResult += (x * 7 + 1) * (pow(x, 2) - 2 * 3.14159265358979323846);
 
-        float fpuTime = (fpuFinishTime.QuadPart - fpuStartTime.QuadPart) * 1000.0f / frequency.QuadPart;
-        float cmathTime = (cmathFinishTime.QuadPart - cmathStartTime.QuadPart) * 1000.0f / frequency.QuadPart;
+            x += intervalStep;
+        } while (x <= intervalEnd);
+        QueryPerformanceCounter(&cmathEndTime);
+
+        float fpuTime = (fpuEndTime.QuadPart - fpuStartTime.QuadPart) * 1000.0f / frequency.QuadPart;
+        float cmathTime = (cmathEndTime.QuadPart - cmathStartTime.QuadPart) * 1000.0f / frequency.QuadPart;
 
         cout << endl;
         cout << "FPU result: " << fpuResult << endl;
@@ -63,7 +85,7 @@ int main()
         cout << "CMATH time: " << cmathTime << endl;
 
         cout << endl;
-        cout << "Do you want to continue? (y/n): ";
+        cout << "Do you want to continue?(y/n) ";
         cin >> retryAnswer;
         system("CLS");
     } while (retryAnswer != 'n');
